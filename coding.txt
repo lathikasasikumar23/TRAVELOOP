@@ -1,0 +1,2169 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+
+// ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary: #1A6B72;
+    --primary-light: #2a8a93;
+    --primary-dark: #0f4a50;
+    --accent: #E8612C;
+    --accent-light: #f07a4a;
+    --bg: #FAF7F2;
+    --surface: #FFFFFF;
+    --text: #1C1C1C;
+    --text-muted: #6B6B6B;
+    --border: #E2DDD6;
+    --success: #3D9970;
+    --warning: #FF851B;
+    --danger: #FF4136;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+    --r-card: 12px;
+    --r-input: 8px;
+    --r-pill: 24px;
+    --transition: 0.2s ease;
+  }
+
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
+
+  h1,h2,h3 { font-family: 'Playfair Display', serif; }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── Nav ── */
+  .nav {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 64px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: var(--shadow);
+  }
+  .nav-logo { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; color: var(--primary); cursor: pointer; flex-shrink:0; }
+  .nav-logo span { color: var(--accent); }
+  .nav-search {
+    flex: 1; max-width: 420px;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--r-pill); padding: 8px 16px;
+  }
+  .nav-search input { border: none; background: transparent; outline: none; width: 100%; font-size: 14px; font-family: 'DM Sans', sans-serif; }
+  .nav-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .nav-icon-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: none; background: var(--bg); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; transition: var(--transition);
+    position: relative;
+  }
+  .nav-icon-btn:hover { background: var(--border); }
+  .badge {
+    position: absolute; top: 4px; right: 4px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--accent); color: white;
+    font-size: 10px; display: flex; align-items: center; justify-content: center;
+    font-weight: 600;
+  }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 600; font-size: 15px; cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 20px; border-radius: var(--r-input);
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: var(--transition); border: none; text-decoration: none;
+  }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-light); transform: translateY(-1px); }
+  .btn-accent { background: var(--accent); color: white; }
+  .btn-accent:hover { background: var(--accent-light); }
+  .btn-ghost { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+  .btn-ghost:hover { background: var(--primary); color: white; }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-sm { padding: 6px 14px; font-size: 13px; }
+  .btn-lg { padding: 13px 28px; font-size: 16px; }
+  .btn-full { width: 100%; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface); border-radius: var(--r-card);
+    box-shadow: var(--shadow); border: 1px solid var(--border);
+    padding: 20px;
+  }
+  .card-hover { transition: var(--transition); cursor: pointer; }
+  .card-hover:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+
+  /* ── Inputs ── */
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  .input-label { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+  .input {
+    padding: 10px 14px; border-radius: var(--r-input);
+    border: 1.5px solid var(--border); background: var(--surface);
+    font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text);
+    outline: none; transition: var(--transition); width: 100%;
+  }
+  .input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,107,114,0.1); }
+  .input.error { border-color: var(--danger); }
+  .input-error { font-size: 12px; color: var(--danger); }
+  .textarea { resize: vertical; min-height: 90px; }
+
+  /* ── Pills / Badges ── */
+  .pill {
+    display: inline-flex; align-items: center;
+    padding: 4px 12px; border-radius: var(--r-pill);
+    font-size: 12px; font-weight: 500;
+  }
+  .pill-success { background: #d4edda; color: #1a7a4a; }
+  .pill-warning { background: #fff3cd; color: #856404; }
+  .pill-danger  { background: #fde; color: var(--danger); }
+  .pill-info    { background: #d0eaf0; color: var(--primary); }
+  .pill-muted   { background: var(--bg); color: var(--text-muted); }
+
+  /* ── Section ── */
+  .section-heading {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px; font-weight: 600;
+    margin-bottom: 16px; color: var(--text);
+  }
+
+  /* ── FAB ── */
+  .fab {
+    position: fixed; bottom: 28px; right: 28px; z-index: 90;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--accent); color: white;
+    border: none; cursor: pointer; font-size: 26px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 20px rgba(232,97,44,0.45);
+    transition: var(--transition);
+  }
+  .fab:hover { background: var(--accent-light); transform: scale(1.1); }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    animation: fadeIn 0.2s ease;
+  }
+  .modal {
+    background: var(--surface); border-radius: var(--r-card);
+    box-shadow: var(--shadow-lg);
+    width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+    padding: 28px;
+    animation: slideUp 0.25s ease;
+  }
+  .modal-title { font-size: 20px; font-weight: 600; margin-bottom: 20px; }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+  /* ── Toast ── */
+  .toast-container { position: fixed; top: 80px; right: 20px; z-index: 300; display:flex; flex-direction:column; gap:8px; }
+  .toast {
+    background: var(--surface); border-left: 4px solid var(--primary);
+    border-radius: 8px; padding: 12px 16px;
+    box-shadow: var(--shadow-lg); font-size: 14px;
+    animation: slideLeft 0.3s ease;
+    max-width: 320px;
+  }
+  .toast.success { border-color: var(--success); }
+  .toast.error   { border-color: var(--danger); }
+  @keyframes slideLeft { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+
+  /* ── Misc ── */
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  .divider-text { display:flex; align-items:center; gap:12px; color:var(--text-muted); font-size:13px; }
+  .divider-text::before, .divider-text::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  .page { min-height: calc(100vh - 64px); padding: 28px 28px 80px; }
+  .page-narrow { max-width: 960px; margin: 0 auto; }
+  .page-wide   { max-width: 1280px; margin: 0 auto; }
+
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .grid-auto { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; }
+  .flex { display:flex; }
+  .flex-col { display:flex; flex-direction:column; }
+  .gap-8  { gap:8px; }
+  .gap-12 { gap:12px; }
+  .gap-16 { gap:16px; }
+  .gap-20 { gap:20px; }
+  .items-center { align-items:center; }
+  .justify-between { justify-content:space-between; }
+  .mb-8  { margin-bottom:8px; }
+  .mb-12 { margin-bottom:12px; }
+  .mb-16 { margin-bottom:16px; }
+  .mb-24 { margin-bottom:24px; }
+  .mt-16 { margin-top:16px; }
+  .text-muted { color:var(--text-muted); font-size:13px; }
+  .text-sm { font-size:13px; }
+  .text-lg { font-size:18px; }
+  .font-bold { font-weight:600; }
+  .w-full { width:100%; }
+
+  /* ── Status colors ── */
+  .status-ongoing   { background:#d0eaf0; color:var(--primary); }
+  .status-upcoming  { background:#fff3cd; color:#856404; }
+  .status-completed { background:#d4edda; color:#1a7a4a; }
+
+  /* ── Skeleton ── */
+  .skeleton { background:linear-gradient(90deg,var(--border) 25%,var(--bg) 50%,var(--border) 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:8px; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  /* ── Trip card ── */
+  .trip-card { overflow:hidden; }
+  .trip-card-img { width:100%; height:160px; object-fit:cover; background:linear-gradient(135deg,var(--primary),var(--accent)); display:flex; align-items:center; justify-content:center; color:white; font-size:32px; }
+  .trip-card-body { padding:16px; }
+  .trip-card-meta { display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
+
+  /* ── Destination card ── */
+  .dest-card { position:relative; overflow:hidden; min-width:200px; }
+  .dest-card-img { width:100%; height:140px; background:linear-gradient(135deg,var(--primary-dark),var(--primary)); display:flex; align-items:center; justify-content:center; font-size:36px; border-radius:var(--r-card) var(--r-card) 0 0; }
+  .dest-card-body { padding:12px; }
+  .dest-cost { position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.65); color:white; font-size:11px; padding:3px 8px; border-radius:var(--r-pill); }
+
+  /* ── Category chip ── */
+  .chip { padding:5px 12px; border-radius:var(--r-pill); border:1.5px solid var(--border); font-size:13px; cursor:pointer; transition:var(--transition); background:white; }
+  .chip.active { background:var(--primary); color:white; border-color:var(--primary); }
+
+  /* ── Progress bar ── */
+  .progress-bar { height:8px; background:var(--border); border-radius:4px; overflow:hidden; }
+  .progress-fill { height:100%; background:var(--primary); border-radius:4px; transition:width 0.4s ease; }
+  .progress-fill.over { background:var(--danger); }
+
+  /* ── Checklist ── */
+  .checklist-item { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .checklist-item:last-child { border-bottom:none; }
+  .checkbox { width:20px; height:20px; border-radius:5px; border:2px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:var(--transition); }
+  .checkbox.checked { background:var(--success); border-color:var(--success); color:white; }
+  .item-name.crossed { text-decoration:line-through; color:var(--text-muted); }
+
+  /* ── Table ── */
+  .table { width:100%; border-collapse:collapse; font-size:14px; }
+  .table th { padding:10px 14px; text-align:left; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); border-bottom:2px solid var(--border); }
+  .table td { padding:12px 14px; border-bottom:1px solid var(--border); }
+  .table tr:last-child td { border-bottom:none; }
+  .table tr:hover td { background:var(--bg); }
+
+  /* ── Auth screen ── */
+  .auth-wrap { display:grid; grid-template-columns:1fr 1fr; min-height:100vh; }
+  .auth-left { position:relative; background:linear-gradient(160deg,#0f4a50,#1A6B72,#2a5298); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px; }
+  .auth-left::after { content:''; position:absolute; inset:0; background:linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(0,0,0,0.55)); }
+  .auth-left-content { position:relative; z-index:1; text-align:center; color:white; }
+  .auth-right { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px; background:var(--bg); overflow-y:auto; }
+  .auth-card { width:100%; max-width:420px; }
+  .auth-tabs { display:flex; background:var(--border); border-radius:10px; padding:4px; margin-bottom:28px; }
+  .auth-tab { flex:1; padding:8px; border:none; background:transparent; border-radius:8px; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; transition:var(--transition); }
+  .auth-tab.active { background:white; box-shadow:var(--shadow); color:var(--primary); }
+
+  /* ── Nav tabs ── */
+  .nav-tabs { display:flex; border-bottom:2px solid var(--border); margin-bottom:24px; gap:4px; }
+  .nav-tab { padding:10px 18px; border:none; background:transparent; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:var(--transition); }
+  .nav-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+
+  /* ── Carousel ── */
+  .carousel { position:relative; overflow:hidden; border-radius:var(--r-card); }
+  .carousel-slide { position:absolute; inset:0; transition:opacity 0.6s ease; opacity:0; }
+  .carousel-slide.active { opacity:1; position:relative; }
+  .carousel-dots { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); display:flex; gap:6px; }
+  .carousel-dot { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.5); cursor:pointer; transition:var(--transition); }
+  .carousel-dot.active { background:white; width:20px; border-radius:4px; }
+
+  /* ── Budget sidebar ── */
+  .budget-panel { background:var(--surface); border-radius:var(--r-card); border:1px solid var(--border); padding:20px; }
+
+  /* ── Donut ── */
+  .donut-wrap { display:flex; align-items:center; gap:16px; }
+
+  /* ── Community feed ── */
+  .feed-card { display:flex; gap:16px; padding:20px; }
+  .feed-avatar { width:48px; height:48px; border-radius:50%; flex-shrink:0; background:linear-gradient(135deg,var(--primary),var(--accent)); display:flex; align-items:center; justify-content:center; color:white; font-weight:600; }
+  .feed-actions { display:flex; gap:12px; margin-top:12px; }
+  .feed-action-btn { display:flex; align-items:center; gap:4px; font-size:13px; color:var(--text-muted); border:none; background:transparent; cursor:pointer; padding:4px 10px; border-radius:var(--r-pill); transition:var(--transition); }
+  .feed-action-btn:hover { background:var(--bg); color:var(--primary); }
+  .feed-action-btn.liked { color:var(--danger); }
+
+  /* ── Notes ── */
+  .note-card { padding:16px; border-radius:var(--r-card); border:1.5px solid var(--border); position:relative; }
+  .note-card.pinned { border-color:var(--accent); }
+  .note-actions { position:absolute; top:12px; right:12px; display:flex; gap:6px; opacity:0; transition:var(--transition); }
+  .note-card:hover .note-actions { opacity:1; }
+
+  /* ── Itinerary builder ── */
+  .section-card { border:2px solid var(--border); border-radius:var(--r-card); padding:20px; position:relative; transition:var(--transition); }
+  .section-card:hover { border-color:var(--primary); }
+  .drag-handle { color:var(--text-muted); cursor:grab; font-size:18px; }
+
+  /* ── Activity card ── */
+  .activity-card { display:flex; gap:12px; padding:14px; border-radius:var(--r-card); border:1px solid var(--border); transition:var(--transition); background:white; }
+  .activity-card:hover { border-color:var(--primary); box-shadow:var(--shadow); }
+  .activity-icon { width:56px; height:56px; border-radius:10px; background:linear-gradient(135deg,var(--primary),var(--primary-light)); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+
+  /* ── Admin ── */
+  .kpi-card { padding:20px; border-radius:var(--r-card); border:1px solid var(--border); background:white; }
+  .kpi-value { font-family:'Playfair Display',serif; font-size:32px; font-weight:700; color:var(--primary); }
+  .kpi-label { font-size:13px; color:var(--text-muted); margin-top:4px; }
+
+  /* ── Invoice ── */
+  .invoice-header { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
+  .invoice-status-pending { background:#fff3cd; color:#856404; }
+  .invoice-status-paid    { background:#d4edda; color:#1a7a4a; }
+  .invoice-status-overdue { background:#fde; color:var(--danger); }
+
+  /* ── Public trip hero ── */
+  .trip-hero { height:40vh; background:linear-gradient(135deg,var(--primary-dark),var(--primary)); display:flex; align-items:flex-end; padding:32px; border-radius:var(--r-card); margin-bottom:24px; }
+  .trip-hero h1 { font-size:36px; color:white; }
+
+  /* ── Empty state ── */
+  .empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); }
+  .empty-state .icon { font-size:56px; margin-bottom:16px; }
+  .empty-state p { margin-bottom:16px; }
+
+  /* ── Dropdown menu ── */
+  .dropdown { position:relative; }
+  .dropdown-menu { position:absolute; top:calc(100% + 8px); right:0; background:white; border:1px solid var(--border); border-radius:var(--r-card); box-shadow:var(--shadow-lg); min-width:180px; overflow:hidden; z-index:150; }
+  .dropdown-item { padding:10px 16px; cursor:pointer; font-size:14px; display:flex; align-items:center; gap:8px; transition:var(--transition); }
+  .dropdown-item:hover { background:var(--bg); }
+  .dropdown-item.danger { color:var(--danger); }
+
+  /* ── Sidebar ── */
+  .sidebar-nav { display:flex; flex-direction:column; gap:4px; }
+  .sidebar-item { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:var(--r-input); cursor:pointer; font-size:14px; font-weight:500; color:var(--text-muted); transition:var(--transition); }
+  .sidebar-item:hover { background:var(--bg); color:var(--text); }
+  .sidebar-item.active { background:rgba(26,107,114,0.1); color:var(--primary); }
+  .sidebar-item .icon { font-size:18px; }
+
+  /* ── Layout with sidebar ── */
+  .app-layout { display:flex; min-height:calc(100vh - 64px); }
+  .app-sidebar { width:220px; flex-shrink:0; background:white; border-right:1px solid var(--border); padding:20px 12px; position:sticky; top:64px; height:calc(100vh - 64px); overflow-y:auto; }
+  .app-content { flex:1; overflow:hidden; }
+
+  /* ── Day itinerary ── */
+  .day-block { margin-bottom:24px; }
+  .day-label { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; color:var(--primary); background:rgba(26,107,114,0.1); padding:6px 14px; border-radius:var(--r-pill); display:inline-block; margin-bottom:12px; }
+  .activity-row { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; border-left:3px solid var(--primary); background:white; border-radius:0 var(--r-input) var(--r-input) 0; margin-bottom:6px; }
+  .flow-arrow { text-align:center; color:var(--text-muted); font-size:20px; margin:2px 0; }
+
+  /* ── Horizontal scroll ── */
+  .hscroll { display:flex; gap:16px; overflow-x:auto; padding-bottom:8px; }
+  .hscroll::-webkit-scrollbar { height:4px; }
+
+  @media (max-width:768px) {
+    .auth-wrap { grid-template-columns:1fr; }
+    .auth-left { display:none; }
+    .grid-2, .grid-3 { grid-template-columns:1fr; }
+    .invoice-header { grid-template-columns:1fr; }
+    .app-sidebar { display:none; }
+    .page { padding:16px 16px 80px; }
+  }
+`;
+
+// ─── MOCK DATA ─────────────────────────────────────────────────────────────────
+const MOCK = {
+  user: { id:"u1", firstName:"James", lastName:"Carter", email:"james@traveloop.com", city:"New York", country:"USA", role:"admin", avatar:"JC", bio:"Passionate traveler 🌍 | 24 countries visited" },
+  trips: [
+    { id:"t1", name:"Europe Adventure", destination:"Paris, Rome, Barcelona", startDate:"2025-05-25", endDate:"2025-06-04", status:"upcoming", emoji:"🗼", budget:20000, spent:22000, stops:["Paris","Rome","Barcelona"] },
+    { id:"t2", name:"Bali Retreat", destination:"Ubud, Seminyak", startDate:"2024-12-01", endDate:"2024-12-10", status:"completed", emoji:"🌴", budget:5000, spent:4700, stops:["Ubud","Seminyak"] },
+    { id:"t3", name:"Tokyo Explorer", destination:"Tokyo, Kyoto, Osaka", startDate:"2025-08-10", endDate:"2025-08-22", status:"upcoming", emoji:"🗾", budget:8000, spent:0, stops:["Tokyo","Kyoto","Osaka"] },
+  ],
+  destinations: [
+    { id:"d1", city:"Paris", country:"France", region:"Europe", cost:180, emoji:"🗼", desc:"The city of love and lights" },
+    { id:"d2", city:"Bali", country:"Indonesia", region:"Asia", cost:60, emoji:"🌴", desc:"Tropical paradise island" },
+    { id:"d3", city:"Tokyo", country:"Japan", region:"Asia", cost:140, emoji:"🗾", desc:"Modern meets ancient" },
+    { id:"d4", city:"New York", country:"USA", region:"Americas", cost:250, emoji:"🗽", desc:"The city that never sleeps" },
+    { id:"d5", city:"Santorini", country:"Greece", region:"Europe", cost:200, emoji:"🏝", desc:"Iconic blue-domed views" },
+  ],
+  activities: [
+    { id:"a1", name:"Eiffel Tower Tour", type:"sightseeing", cost:25, duration:"2hr", rating:4.8, city:"Paris", emoji:"🗼" },
+    { id:"a2", name:"Louvre Museum", type:"culture", cost:20, duration:"4hr", rating:4.9, city:"Paris", emoji:"🎨" },
+    { id:"a3", name:"Paragliding", type:"adventure", cost:120, duration:"1hr", rating:4.7, city:"Bali", emoji:"🪂" },
+    { id:"a4", name:"Sushi Making Class", type:"food", cost:80, duration:"3hr", rating:4.6, city:"Tokyo", emoji:"🍣" },
+    { id:"a5", name:"Temple Hopping", type:"culture", cost:0, duration:"half-day", rating:4.5, city:"Kyoto", emoji:"⛩️" },
+    { id:"a6", name:"Night Market Tour", type:"food", cost:15, duration:"2hr", rating:4.4, city:"Bangkok", emoji:"🌮" },
+  ],
+  notes: [
+    { id:"n1", title:"Hotel check-in details – Rome stop", content:"Check in after 2pm, room 302, breakfast included (7–10am)", day:3, date:"2025-05-28", pinned:true },
+    { id:"n2", title:"Must-try restaurants in Paris", content:"Le Jules Verne, Septime, L'Ambroisie — book in advance!", day:1, date:"2025-05-25", pinned:false },
+    { id:"n3", title:"Flight confirmation codes", content:"DEL→PAR: 6H4K2J | PAR→ROM: 9A3F7B", day:1, date:"2025-05-25", pinned:false },
+  ],
+  checklist: [
+    { id:"c1", name:"Passport", category:"Documents", packed:false },
+    { id:"c2", name:"Travel Insurance", category:"Documents", packed:true },
+    { id:"c3", name:"Boarding Passes", category:"Documents", packed:false },
+    { id:"c4", name:"T-shirts (5x)", category:"Clothing", packed:true },
+    { id:"c5", name:"Rain jacket", category:"Clothing", packed:false },
+    { id:"c6", name:"Laptop", category:"Electronics", packed:false },
+    { id:"c7", name:"Charger", category:"Electronics", packed:true },
+    { id:"c8", name:"Power bank", category:"Electronics", packed:false },
+  ],
+  community: [
+    { id:"cm1", user:"Priya S.", avatar:"PS", trip:"Maldives Honeymoon", desc:"7 days of pure bliss — overwater bungalows, snorkeling & sunsets 🌅", likes:142, comments:18, saves:63, tags:["Beach","Luxury","Romance"] },
+    { id:"cm2", user:"Arjun M.", avatar:"AM", trip:"Japan Cherry Blossom", desc:"Chasing sakura from Tokyo to Kyoto in spring. Perfectly timed!", likes:98, comments:11, saves:47, tags:["Culture","Nature","Photography"] },
+    { id:"cm3", user:"Sara L.", avatar:"SL", trip:"Patagonia Hike", desc:"Torres del Paine W-Trek — challenging but absolutely worth every step.", likes:211, comments:34, saves:92, tags:["Adventure","Hiking","Nature"] },
+  ],
+  itinerarySections: [
+    { id:"s1", title:"Section 1 — Paris", description:"Arrive CDG, check in, dinner at Le Marais", startDate:"2025-05-25", endDate:"2025-05-28", budget:6000 },
+    { id:"s2", title:"Section 2 — Rome", description:"Train from Paris, Colosseum, Vatican", startDate:"2025-05-29", endDate:"2025-06-01", budget:7000 },
+    { id:"s3", title:"Section 3 — Barcelona", description:"Sagrada Familia, Barceloneta beach", startDate:"2025-06-02", endDate:"2025-06-04", budget:5000 },
+  ],
+  invoice: {
+    number:"INV-t1abc-30290", generatedDate:"2025-05-20", status:"pending",
+    travelers:["James","Arjun","Jerry","Cristina"],
+    lineItems:[
+      { id:"li1", cat:"Hotel", desc:"Hotel booking Paris", qty:"3 nights", unit:3000, amount:4000 },
+      { id:"li2", cat:"Travel", desc:"Flight bookings (DEL → PAR)", qty:"1 ticket", unit:12000, amount:12000 },
+      { id:"li3", cat:"Food", desc:"Dining & Restaurants", qty:"10 days", unit:200, amount:2000 },
+      { id:"li4", cat:"Activity", desc:"Museums & Tours", qty:"6 entries", unit:500, amount:3000 },
+    ],
+    subtotal:21000, taxRate:5, taxAmount:1050, discount:50, grandTotal:22000,
+    totalBudget:20000, totalSpent:22000,
+  },
+  adminStats: {
+    totalUsers:3842, totalTrips:12491, activeToday:287, avgTripDays:8,
+    registrationsByDay:[120,145,132,168,190,176,210],
+    tripsByMonth:[420,380,510,620,590,740,810,760,890,820,950,1100],
+    topCities:[{city:"Paris",count:1240},{city:"Bali",count:980},{city:"Tokyo",count:870},{city:"New York",count:760},{city:"Santorini",count:620}],
+    statusDist:{ongoing:18,upcoming:42,completed:40},
+  },
+};
+
+// ─── UTILITIES ─────────────────────────────────────────────────────────────────
+function formatDate(d) {
+  if (!d) return "";
+  return new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+}
+function pct(a,b) { return b ? Math.round((a/b)*100) : 0; }
+
+// ─── TOAST CONTEXT ─────────────────────────────────────────────────────────────
+function useToast() {
+  const [toasts, setToasts] = useState([]);
+  const add = useCallback((msg, type="success") => {
+    const id = Date.now();
+    setToasts(t => [...t, {id, msg, type}]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
+  }, []);
+  return { toasts, add };
+}
+
+function ToastContainer({ toasts }) {
+  return (
+    <div className="toast-container">
+      {toasts.map(t => (
+        <div key={t.id} className={`toast ${t.type}`}>
+          {t.type === "success" ? "✅" : t.type === "error" ? "❌" : "ℹ️"} {t.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── MODAL ─────────────────────────────────────────────────────────────────────
+function Modal({ title, onClose, children, maxWidth=520 }) {
+  useEffect(() => {
+    const fn = e => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, [onClose]);
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{maxWidth}}>
+        <div className="flex items-center justify-between mb-16">
+          <div className="modal-title">{title}</div>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"var(--text-muted)"}}>✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─── NAV ───────────────────────────────────────────────────────────────────────
+function Nav({ screen, setScreen, user, onLogout }) {
+  const [dropOpen, setDropOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  if (!user) return null;
+  return (
+    <nav className="nav">
+      <div className="nav-logo" onClick={() => setScreen("dashboard")}>
+        Travel<span>oop</span>
+      </div>
+      <div className="nav-search">
+        <span style={{color:"var(--text-muted)"}}>🔍</span>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search destinations, trips..." />
+      </div>
+      <div className="nav-actions">
+        <button className="nav-icon-btn" onClick={()=>setScreen("community")}>
+          🌐
+        </button>
+        <button className="nav-icon-btn">
+          🔔
+          <span className="badge">3</span>
+        </button>
+        <div className="dropdown">
+          <div className="avatar" onClick={()=>setDropOpen(d=>!d)}>{user.avatar}</div>
+          {dropOpen && (
+            <div className="dropdown-menu">
+              <div className="dropdown-item" onClick={()=>{setScreen("profile");setDropOpen(false)}}>👤 My Profile</div>
+              <div className="dropdown-item" onClick={()=>{setScreen("trips");setDropOpen(false)}}>🗺 My Trips</div>
+              {user.role === "admin" && <div className="dropdown-item" onClick={()=>{setScreen("admin");setDropOpen(false)}}>⚙️ Admin</div>}
+              <div className="divider" style={{margin:"4px 0"}}/>
+              <div className="dropdown-item danger" onClick={onLogout}>🚪 Logout</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+// ─── SIDEBAR ───────────────────────────────────────────────────────────────────
+function Sidebar({ screen, setScreen }) {
+  const items = [
+    { id:"dashboard", label:"Dashboard", icon:"🏠" },
+    { id:"trips",     label:"My Trips",  icon:"🗺" },
+    { id:"community", label:"Community", icon:"🌐" },
+    { id:"search",    label:"Explore",   icon:"🔍" },
+    { id:"profile",   label:"Profile",   icon:"👤" },
+  ];
+  return (
+    <aside className="app-sidebar">
+      <nav className="sidebar-nav">
+        {items.map(i => (
+          <div key={i.id} className={`sidebar-item ${screen===i.id?"active":""}`} onClick={()=>setScreen(i.id)}>
+            <span className="icon">{i.icon}</span>
+            {i.label}
+          </div>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 1 — AUTH
+// ══════════════════════════════════════════════════════════════════════════════
+function AuthScreen({ onLogin, toast }) {
+  const [tab, setTab] = useState("login");
+  const [form, setForm] = useState({ email:"", password:"", firstName:"", lastName:"", phone:"", city:"", country:"", info:"" });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+
+  const set = (k, v) => setForm(f => ({...f, [k]: v}));
+
+  const validate = () => {
+    const e = {};
+    if (!form.email) e.email = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = "Invalid email";
+    if (!form.password) e.password = "Password is required";
+    else if (form.password.length < 6) e.password = "Min 6 characters";
+    if (tab === "register") {
+      if (!form.firstName) e.firstName = "First name required";
+      if (!form.lastName)  e.lastName  = "Last name required";
+    }
+    return e;
+  };
+
+  const submit = async () => {
+    const e = validate();
+    if (Object.keys(e).length) { setErrors(e); return; }
+    setLoading(true);
+    // Simulate API call
+    await new Promise(r => setTimeout(r, 1200));
+    setLoading(false);
+    toast("Welcome to Traveloop! 🌍", "success");
+    onLogin(MOCK.user);
+  };
+
+  const quotes = ["Plan Less. Wander More.", "The world is a book; those who do not travel read only one page.", "Adventure awaits — pack your bags."];
+
+  return (
+    <div className="auth-wrap">
+      {/* Left Panel */}
+      <div className="auth-left">
+        <div className="auth-left-content">
+          <div style={{fontSize:48,marginBottom:16}}>✈️</div>
+          <h1 style={{fontSize:38,marginBottom:12,color:"white"}}>Traveloop</h1>
+          <p style={{fontSize:18,color:"rgba(255,255,255,0.85)",lineHeight:1.5,fontStyle:"italic",maxWidth:340}}>
+            "{quotes[0]}"
+          </p>
+          <div style={{display:"flex",gap:12,marginTop:40,justifyContent:"center",flexWrap:"wrap"}}>
+            {["🗼 Paris","🌴 Bali","🗾 Tokyo","🏝 Santorini"].map(t => (
+              <span key={t} style={{background:"rgba(255,255,255,0.15)",color:"white",padding:"6px 14px",borderRadius:24,fontSize:13}}>{t}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* Right Panel */}
+      <div className="auth-right">
+        <div className="auth-card">
+          <h2 style={{fontSize:28,marginBottom:8}}>
+            {tab === "login" ? "Welcome back" : "Create account"}
+          </h2>
+          <p className="text-muted mb-24">
+            {tab === "login" ? "Sign in to continue your journey" : "Start planning your next adventure"}
+          </p>
+          <div className="auth-tabs">
+            <button className={`auth-tab ${tab==="login"?"active":""}`} onClick={()=>setTab("login")}>Login</button>
+            <button className={`auth-tab ${tab==="register"?"active":""}`} onClick={()=>setTab("register")}>Register</button>
+          </div>
+
+          {tab === "register" && (
+            <>
+              <div className="grid-2 gap-12 mb-12">
+                <div className="input-group">
+                  <label className="input-label">First Name *</label>
+                  <input className={`input ${errors.firstName?"error":""}`} placeholder="James" value={form.firstName} onChange={e=>set("firstName",e.target.value)} />
+                  {errors.firstName && <span className="input-error">{errors.firstName}</span>}
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Last Name *</label>
+                  <input className={`input ${errors.lastName?"error":""}`} placeholder="Carter" value={form.lastName} onChange={e=>set("lastName",e.target.value)} />
+                  {errors.lastName && <span className="input-error">{errors.lastName}</span>}
+                </div>
+              </div>
+              <div className="grid-2 gap-12 mb-12">
+                <div className="input-group">
+                  <label className="input-label">Phone</label>
+                  <input className="input" placeholder="+1 555 0000" value={form.phone} onChange={e=>set("phone",e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">City</label>
+                  <input className="input" placeholder="New York" value={form.city} onChange={e=>set("city",e.target.value)} />
+                </div>
+              </div>
+              <div className="input-group mb-12">
+                <label className="input-label">Country</label>
+                <input className="input" placeholder="USA" value={form.country} onChange={e=>set("country",e.target.value)} />
+              </div>
+            </>
+          )}
+
+          <div className="input-group mb-12">
+            <label className="input-label">Email Address *</label>
+            <input className={`input ${errors.email?"error":""}`} type="email" placeholder="you@example.com" value={form.email} onChange={e=>set("email",e.target.value)} />
+            {errors.email && <span className="input-error">{errors.email}</span>}
+          </div>
+          <div className="input-group mb-16">
+            <label className="input-label">Password *</label>
+            <div style={{position:"relative"}}>
+              <input
+                className={`input ${errors.password?"error":""}`}
+                type={showPw?"text":"password"}
+                placeholder="••••••••"
+                value={form.password}
+                onChange={e=>set("password",e.target.value)}
+                style={{paddingRight:40}}
+              />
+              <button onClick={()=>setShowPw(p=>!p)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)"}}>
+                {showPw?"🙈":"👁"}
+              </button>
+            </div>
+            {errors.password && <span className="input-error">{errors.password}</span>}
+          </div>
+
+          {tab === "register" && (
+            <div className="input-group mb-16">
+              <label className="input-label">Additional Information</label>
+              <textarea className="input textarea" placeholder="Tell us about your travel style..." value={form.info} onChange={e=>set("info",e.target.value)} />
+            </div>
+          )}
+
+          {tab === "login" && (
+            <div className="flex justify-between items-center mb-16" style={{fontSize:13}}>
+              <label style={{display:"flex",gap:6,cursor:"pointer",alignItems:"center"}}>
+                <input type="checkbox" /> Remember me
+              </label>
+              <span style={{color:"var(--primary)",cursor:"pointer"}}>Forgot Password?</span>
+            </div>
+          )}
+
+          <button className="btn btn-primary btn-full btn-lg" onClick={submit} disabled={loading}>
+            {loading ? "⏳ Please wait..." : tab === "login" ? "Login →" : "Create Account →"}
+          </button>
+
+          <div className="divider-text" style={{margin:"20px 0"}}>or continue with</div>
+
+          <button className="btn btn-ghost btn-full" style={{gap:8}}>
+            <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            Continue with Google
+          </button>
+
+          <p style={{textAlign:"center",marginTop:20,fontSize:13,color:"var(--text-muted)"}}>
+            {tab === "login"
+              ? <>Don't have an account? <span style={{color:"var(--primary)",cursor:"pointer"}} onClick={()=>setTab("register")}>Sign Up</span></>
+              : <>Already have an account? <span style={{color:"var(--primary)",cursor:"pointer"}} onClick={()=>setTab("login")}>Login</span></>
+            }
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 2 — DASHBOARD
+// ══════════════════════════════════════════════════════════════════════════════
+function Dashboard({ user, setScreen, setSelectedTrip, toast }) {
+  const [slide, setSlide] = useState(0);
+  const slides = [
+    { bg:"linear-gradient(135deg,#0f4a50,#1A6B72)", emoji:"🗼", label:"Explore Europe" },
+    { bg:"linear-gradient(135deg,#1a4a2e,#3D9970)", emoji:"🌴", label:"Discover Asia" },
+    { bg:"linear-gradient(135deg,#2a2066,#4a3b9a)", emoji:"🗽", label:"Americas Awaits" },
+  ];
+  useEffect(() => {
+    const t = setInterval(() => setSlide(s => (s+1) % slides.length), 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <div className="page">
+      <div className="page-wide">
+        {/* Hero Carousel */}
+        <div className="carousel mb-24" style={{height:260}}>
+          {slides.map((s,i) => (
+            <div key={i} className={`carousel-slide ${i===slide?"active":""}`}
+              style={{background:s.bg,height:260,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,borderRadius:16}}>
+              <span style={{fontSize:56}}>{s.emoji}</span>
+              <h1 style={{color:"white",fontSize:26}}>Where to next, {user.firstName}?</h1>
+              <p style={{color:"rgba(255,255,255,0.8)",fontSize:15}}>{s.label}</p>
+              <div style={{display:"flex",gap:8,marginTop:8}}>
+                <input className="input" placeholder="Search a destination..." style={{width:280,background:"rgba(255,255,255,0.95)"}} />
+                <button className="btn btn-accent">Search</button>
+              </div>
+              <div className="carousel-dots" style={{position:"relative",bottom:"auto",left:"auto",transform:"none",marginTop:8}}>
+                {slides.map((_,j) => <div key={j} className={`carousel-dot ${j===slide?"active":""}`} onClick={()=>setSlide(j)} />)}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid-3 mb-24" style={{gap:16}}>
+          {[
+            { label:"Total Trips", value:MOCK.trips.length, icon:"✈️" },
+            { label:"Countries Visited", value:7, icon:"🌍" },
+            { label:"Upcoming Trips", value:MOCK.trips.filter(t=>t.status==="upcoming").length, icon:"📅" },
+          ].map(s => (
+            <div key={s.label} className="card" style={{display:"flex",alignItems:"center",gap:14}}>
+              <span style={{fontSize:32}}>{s.icon}</span>
+              <div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:"var(--primary)"}}>{s.value}</div>
+                <div className="text-muted">{s.label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Top Destinations */}
+        <div className="mb-24">
+          <h2 className="section-heading">Top Regional Selections</h2>
+          <div className="hscroll">
+            {MOCK.destinations.map(d => (
+              <div key={d.id} className="card card-hover dest-card" style={{minWidth:200,flexShrink:0}} onClick={()=>setScreen("search")}>
+                <div className="dest-card-img">{d.emoji}</div>
+                <span className="dest-cost mono">${d.cost}/day</span>
+                <div className="dest-card-body">
+                  <div style={{fontWeight:600}}>{d.city}</div>
+                  <div className="text-muted text-sm">{d.country}</div>
+                  <div className="text-muted text-sm" style={{marginTop:4}}>{d.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Previous Trips */}
+        <div>
+          <div className="flex items-center justify-between mb-16">
+            <h2 className="section-heading" style={{marginBottom:0}}>Your Previous Trips</h2>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setScreen("trips")}>View All →</button>
+          </div>
+          {MOCK.trips.length === 0 ? (
+            <div className="empty-state">
+              <div className="icon">🗺</div>
+              <p>No trips yet! Start planning your first adventure.</p>
+              <button className="btn btn-primary" onClick={()=>setScreen("create-trip")}>Plan Your First Trip</button>
+            </div>
+          ) : (
+            <div className="grid-3">
+              {MOCK.trips.slice(0,3).map(t => (
+                <div key={t.id} className="card card-hover trip-card" onClick={()=>{setSelectedTrip(t);setScreen("itinerary-view");}}>
+                  <div className="trip-card-img">{t.emoji}</div>
+                  <div className="trip-card-body">
+                    <div style={{fontWeight:600,fontSize:15}}>{t.name}</div>
+                    <div className="text-muted text-sm">{t.destination}</div>
+                    <div className="trip-card-meta">
+                      <span className={`pill pill-info mono`} style={{fontSize:11}}>{formatDate(t.startDate)}</span>
+                      <span className={`pill ${t.status==="upcoming"?"pill-warning":t.status==="ongoing"?"pill-info":"pill-success"}`}>{t.status}</span>
+                    </div>
+                    <button className="btn btn-ghost btn-sm w-full mt-16">View Trip →</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <button className="fab" onClick={()=>setScreen("create-trip")} title="Plan a Trip">+</button>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 3 — CREATE TRIP
+// ══════════════════════════════════════════════════════════════════════════════
+function CreateTrip({ setScreen, toast }) {
+  const [form, setForm] = useState({ name:"", place:"", startDate:"", endDate:"", desc:"" });
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [suggestions, setSuggestions] = useState(MOCK.activities.slice(0,6));
+  const [added, setAdded] = useState([]);
+
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const validate = () => {
+    const e = {};
+    if (!form.name || form.name.length < 3) e.name = "Trip name must be at least 3 characters";
+    if (!form.startDate) e.startDate = "Start date is required";
+    if (form.endDate && form.startDate && form.endDate < form.startDate) e.endDate = "End date must be after start date";
+    return e;
+  };
+
+  const save = async (draft=false) => {
+    if (!draft) {
+      const e = validate();
+      if (Object.keys(e).length) { setErrors(e); return; }
+    }
+    setSaving(true);
+    await new Promise(r => setTimeout(r, 1000));
+    setSaving(false);
+    toast(draft ? "Draft saved!" : "Trip created successfully! 🎉", "success");
+    setScreen("trips");
+  };
+
+  return (
+    <div className="page">
+      <div className="page-wide">
+        <div className="flex items-center gap-12 mb-24">
+          <button className="btn btn-ghost btn-sm" onClick={()=>setScreen("dashboard")}>← Back</button>
+          <h1 style={{fontSize:28}}>Plan a New Trip</h1>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:24}}>
+          {/* Form */}
+          <div className="card">
+            <div className="input-group mb-16">
+              <label className="input-label">Trip Name *</label>
+              <input className={`input ${errors.name?"error":""}`} placeholder="e.g. Paris & Rome Adventure" value={form.name} onChange={e=>set("name",e.target.value)} />
+              {errors.name && <span className="input-error">{errors.name}</span>}
+            </div>
+            <div className="input-group mb-16">
+              <label className="input-label">Select a Place</label>
+              <select className="input" value={form.place} onChange={e=>set("place",e.target.value)}>
+                <option value="">-- Choose destination --</option>
+                {MOCK.destinations.map(d => <option key={d.id} value={d.id}>{d.city}, {d.country}</option>)}
+              </select>
+            </div>
+            <div className="grid-2 gap-12 mb-16">
+              <div className="input-group">
+                <label className="input-label">Start Date *</label>
+                <input type="date" className={`input ${errors.startDate?"error":""}`} value={form.startDate} onChange={e=>set("startDate",e.target.value)} />
+                {errors.startDate && <span className="input-error">{errors.startDate}</span>}
+              </div>
+              <div className="input-group">
+                <label className="input-label">End Date</label>
+                <input type="date" className={`input ${errors.endDate?"error":""}`} value={form.endDate} onChange={e=>set("endDate",e.target.value)} />
+                {errors.endDate && <span className="input-error">{errors.endDate}</span>}
+              </div>
+            </div>
+            <div className="input-group mb-16">
+              <label className="input-label">Trip Description</label>
+              <textarea className="input textarea" placeholder="Describe your trip..." value={form.desc} onChange={e=>set("desc",e.target.value)} />
+            </div>
+            <div className="input-group mb-24">
+              <label className="input-label">Cover Photo</label>
+              <div style={{border:"2px dashed var(--border)",borderRadius:12,padding:32,textAlign:"center",cursor:"pointer",background:"var(--bg)"}}>
+                <div style={{fontSize:32,marginBottom:8}}>📷</div>
+                <div style={{fontSize:14,color:"var(--text-muted)"}}>Drag & drop or click to upload</div>
+              </div>
+            </div>
+            <div className="flex gap-12">
+              <button className="btn btn-ghost" onClick={()=>save(true)} disabled={saving}>Save Draft</button>
+              <button className="btn btn-primary" onClick={()=>save(false)} disabled={saving}>
+                {saving ? "Creating..." : "Create Trip →"}
+              </button>
+            </div>
+          </div>
+
+          {/* AI Suggestions */}
+          <div>
+            <div className="card">
+              <h3 style={{marginBottom:4}}>✨ Suggested Activities</h3>
+              <p className="text-muted text-sm mb-16">Based on your destination</p>
+              <div className="flex-col gap-12">
+                {suggestions.map(a => (
+                  <div key={a.id} className="activity-card">
+                    <div className="activity-icon">{a.emoji}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:600,fontSize:14}}>{a.name}</div>
+                      <div className="text-muted text-sm">{a.city} · {a.duration} · ${a.cost}</div>
+                      <div style={{display:"flex",gap:4,marginTop:4}}>
+                        {"★".repeat(Math.round(a.rating))} <span className="text-muted text-sm">{a.rating}</span>
+                      </div>
+                    </div>
+                    <button
+                      className={`btn btn-sm ${added.includes(a.id)?"btn-accent":"btn-ghost"}`}
+                      onClick={()=>setAdded(prev => prev.includes(a.id) ? prev.filter(x=>x!==a.id) : [...prev, a.id])}
+                    >
+                      {added.includes(a.id) ? "✓" : "+"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 4 — ITINERARY BUILDER
+// ══════════════════════════════════════════════════════════════════════════════
+function ItineraryBuilder({ trip, setScreen, toast }) {
+  const [sections, setSections] = useState(MOCK.itinerarySections);
+
+  const addSection = () => setSections(s => [...s, {
+    id: `s${Date.now()}`, title:`Section ${s.length+1}`, description:"", startDate:"", endDate:"", budget:0
+  }]);
+  const delSection = id => setSections(s => s.filter(x => x.id !== id));
+  const upd = (id, k, v) => setSections(s => s.map(x => x.id===id ? {...x,[k]:v} : x));
+
+  const totalBudget = sections.reduce((a,s)=>a+(Number(s.budget)||0),0);
+
+  const save = async () => {
+    await new Promise(r=>setTimeout(r,800));
+    toast("Itinerary saved! 🗺", "success");
+  };
+
+  return (
+    <div className="page">
+      <div className="page-wide">
+        <div className="flex items-center gap-12 mb-24">
+          <button className="btn btn-ghost btn-sm" onClick={()=>setScreen("trips")}>← Back</button>
+          <h1 style={{fontSize:28}}>Build Itinerary</h1>
+          {trip && <span className="pill pill-info">{trip.name}</span>}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 280px",gap:24}}>
+          <div className="flex-col gap-16">
+            {sections.map((sec,idx) => (
+              <div key={sec.id} className="section-card">
+                <div className="flex items-center justify-between mb-12">
+                  <div className="flex items-center gap-10">
+                    <span className="drag-handle">⠿</span>
+                    <input className="input" style={{fontWeight:600,fontSize:15,border:"none",padding:"4px 0",background:"transparent"}} value={sec.title} onChange={e=>upd(sec.id,"title",e.target.value)} />
+                  </div>
+                  <button style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"var(--danger)"}} onClick={()=>delSection(sec.id)}>🗑</button>
+                </div>
+                <div className="input-group mb-12">
+                  <label className="input-label">Description</label>
+                  <textarea className="input textarea" style={{minHeight:70}} placeholder="All necessary info — travel, hotel, activity..." value={sec.description} onChange={e=>upd(sec.id,"description",e.target.value)} />
+                </div>
+                <div className="grid-2 gap-12 mb-12">
+                  <div className="input-group">
+                    <label className="input-label">Start Date</label>
+                    <input type="date" className="input" value={sec.startDate} onChange={e=>upd(sec.id,"startDate",e.target.value)} />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">End Date</label>
+                    <input type="date" className="input" value={sec.endDate} onChange={e=>upd(sec.id,"endDate",e.target.value)} />
+                  </div>
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Budget for this Section ($)</label>
+                  <input type="number" className="input" value={sec.budget} onChange={e=>upd(sec.id,"budget",e.target.value)} />
+                </div>
+              </div>
+            ))}
+            <button className="btn btn-ghost w-full" style={{borderStyle:"dashed",borderWidth:2,padding:16}} onClick={addSection}>
+              + Add Another Section
+            </button>
+            <div className="flex gap-12">
+              <button className="btn btn-ghost" onClick={()=>setScreen("itinerary-view")}>Preview →</button>
+              <button className="btn btn-primary" onClick={save}>Save Itinerary</button>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="flex-col gap-16">
+            <div className="budget-panel">
+              <h3 style={{marginBottom:16}}>Budget Summary</h3>
+              {sections.map(s => (
+                <div key={s.id} className="flex justify-between mb-8" style={{fontSize:13}}>
+                  <span className="text-muted">{s.title}</span>
+                  <span className="font-bold">${Number(s.budget||0).toLocaleString()}</span>
+                </div>
+              ))}
+              <div className="divider"/>
+              <div className="flex justify-between">
+                <span className="font-bold">Total</span>
+                <span className="font-bold" style={{color:"var(--primary)"}}>
+                  ${totalBudget.toLocaleString()}
+                </span>
+              </div>
+            </div>
+            <div className="budget-panel">
+              <h3 style={{marginBottom:12}}>Progress</h3>
+              <div className="text-muted text-sm mb-8">{sections.filter(s=>s.startDate).length} of {sections.length} sections have dates</div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{width:`${pct(sections.filter(s=>s.startDate).length, sections.length)}%`}} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 5 — TRIPS LIST
+// ══════════════════════════════════════════════════════════════════════════════
+function TripsList({ setScreen, setSelectedTrip, toast }) {
+  const [tab, setTab] = useState("all");
+  const [q, setQ] = useState("");
+  const [delConfirm, setDelConfirm] = useState(null);
+
+  const filtered = MOCK.trips.filter(t =>
+    (tab === "all" || t.status === tab) &&
+    (!q || t.name.toLowerCase().includes(q.toLowerCase()))
+  );
+
+  const statusPill = (s) => {
+    const cls = {ongoing:"pill-info",upcoming:"pill-warning",completed:"pill-success"}[s] || "pill-muted";
+    return <span className={`pill ${cls}`}>{s}</span>;
+  };
+
+  return (
+    <div className="page">
+      <div className="page-wide">
+        <div className="flex items-center justify-between mb-24">
+          <h1 style={{fontSize:28}}>My Trips</h1>
+          <button className="btn btn-primary" onClick={()=>setScreen("create-trip")}>+ Plan a Trip</button>
+        </div>
+
+        {/* Search + Filter */}
+        <div className="flex gap-12 mb-20 items-center">
+          <input className="input" style={{flex:1,maxWidth:340}} placeholder="Search trips..." value={q} onChange={e=>setQ(e.target.value)} />
+          <button className="btn btn-ghost btn-sm">⚙ Filter</button>
+          <button className="btn btn-ghost btn-sm">⬆⬇ Sort</button>
+        </div>
+
+        {/* Tabs */}
+        <div className="nav-tabs mb-20">
+          {["all","ongoing","upcoming","completed"].map(t => (
+            <button key={t} className={`nav-tab ${tab===t?"active":""}`} onClick={()=>setTab(t)}>
+              {t.charAt(0).toUpperCase()+t.slice(1)}
+              <span style={{marginLeft:6,fontSize:12,background:"var(--bg)",padding:"1px 6px",borderRadius:10,color:"var(--text-muted)"}}>
+                {MOCK.trips.filter(x=>t==="all"||x.status===t).length}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="empty-state">
+            <div className="icon">🗺</div>
+            <p>No {tab !== "all" ? tab : ""} trips found.</p>
+            <button className="btn btn-primary" onClick={()=>setScreen("create-trip")}>Plan a Trip</button>
+          </div>
+        ) : (
+          <div className="flex-col gap-12">
+            {filtered.map(t => (
+              <div key={t.id} className="card" style={{display:"flex",gap:16,alignItems:"center"}}>
+                <div style={{width:80,height:70,borderRadius:10,background:`linear-gradient(135deg,var(--primary),var(--primary-light))`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0}}>
+                  {t.emoji}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600,fontSize:15}}>{t.name}</div>
+                  <div className="text-muted text-sm">{t.destination}</div>
+                  <div className="flex gap-8 mt-8 items-center">
+                    <span className="mono text-sm">{formatDate(t.startDate)} — {formatDate(t.endDate)}</span>
+                    {statusPill(t.status)}
+                  </div>
+                </div>
+                <div className="flex gap-8">
+                  <button className="btn btn-ghost btn-sm" onClick={()=>{setSelectedTrip(t);setScreen("itinerary-view");}}>👁 View</button>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>setScreen("itinerary-builder")}>✏️ Edit</button>
+                  <button className="btn btn-sm" style={{background:"var(--bg)",border:"1.5px solid var(--border)"}} onClick={()=>setDelConfirm(t.id)}>🗑</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {delConfirm && (
+        <Modal title="Delete Trip?" onClose={()=>setDelConfirm(null)}>
+          <p className="text-muted mb-24">This action cannot be undone. All data will be permanently deleted.</p>
+          <div className="flex gap-12">
+            <button className="btn btn-ghost flex-1" onClick={()=>setDelConfirm(null)}>Cancel</button>
+            <button className="btn btn-danger flex-1" onClick={()=>{setDelConfirm(null);toast("Trip deleted","success");}}>Delete</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 6 — USER PROFILE
+// ══════════════════════════════════════════════════════════════════════════════
+function ProfileScreen({ user, setScreen, toast }) {
+  const [form, setForm] = useState({...user, bio: user.bio || ""});
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    await new Promise(r=>setTimeout(r,800));
+    setSaving(false);
+    toast("Profile updated! ✅");
+  };
+
+  return (
+    <div className="page">
+      <div className="page-narrow">
+        {/* Profile Header */}
+        <div className="card mb-24" style={{textAlign:"center",padding:36}}>
+          <div style={{width:100,height:100,borderRadius:"50%",background:"linear-gradient(135deg,var(--primary),var(--accent))",display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontSize:36,fontWeight:600,margin:"0 auto 16px",cursor:"pointer"}}>
+            {user.avatar}
+          </div>
+          <h2 style={{fontSize:24,marginBottom:4}}>{form.firstName} {form.lastName}</h2>
+          <p className="text-muted mb-16">{form.bio}</p>
+          <div className="flex gap-16 justify-between" style={{justifyContent:"center",gap:32}}>
+            {[{label:"Trips",v:MOCK.trips.length},{label:"Countries",v:7},{label:"Since",v:"2023"}].map(s=>(
+              <div key={s.label} style={{textAlign:"center"}}>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"var(--primary)"}}>{s.v}</div>
+                <div className="text-muted text-sm">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Edit Form */}
+        <div className="card mb-24">
+          <h3 style={{marginBottom:20}}>Personal Details</h3>
+          <div className="grid-2 gap-12 mb-12">
+            <div className="input-group">
+              <label className="input-label">First Name</label>
+              <input className="input" value={form.firstName} onChange={e=>setForm(f=>({...f,firstName:e.target.value}))} />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Last Name</label>
+              <input className="input" value={form.lastName} onChange={e=>setForm(f=>({...f,lastName:e.target.value}))} />
+            </div>
+          </div>
+          <div className="grid-2 gap-12 mb-12">
+            <div className="input-group">
+              <label className="input-label">Email</label>
+              <input className="input" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} />
+            </div>
+            <div className="input-group">
+              <label className="input-label">City</label>
+              <input className="input" value={form.city} onChange={e=>setForm(f=>({...f,city:e.target.value}))} />
+            </div>
+          </div>
+          <div className="input-group mb-12">
+            <label className="input-label">Bio</label>
+            <textarea className="input textarea" value={form.bio} onChange={e=>setForm(f=>({...f,bio:e.target.value}))} />
+          </div>
+          <div className="flex gap-12">
+            <button className="btn btn-primary" onClick={save} disabled={saving}>{saving?"Saving...":"Save Changes"}</button>
+            <button className="btn btn-ghost">Change Password</button>
+          </div>
+        </div>
+
+        {/* Previous Trips */}
+        <div className="mb-24">
+          <h3 style={{marginBottom:16,fontFamily:"'Playfair Display',serif",fontSize:20}}>My Trips</h3>
+          <div className="grid-3">
+            {MOCK.trips.map(t => (
+              <div key={t.id} className="card card-hover">
+                <div style={{fontSize:32,textAlign:"center",padding:"16px 0"}}>{t.emoji}</div>
+                <div style={{fontWeight:600,fontSize:14}}>{t.name}</div>
+                <div className="text-muted text-sm">{formatDate(t.startDate)}</div>
+                <button className="btn btn-ghost btn-sm w-full mt-16" onClick={()=>setScreen("itinerary-view")}>View →</button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Danger Zone */}
+        <div className="card" style={{border:"1.5px solid var(--danger)"}}>
+          <h3 style={{color:"var(--danger)",marginBottom:8}}>⚠️ Danger Zone</h3>
+          <p className="text-muted text-sm mb-16">Permanently delete your account and all associated data.</p>
+          <button className="btn btn-danger btn-sm">Delete Account</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 7 — ACTIVITY SEARCH
+// ══════════════════════════════════════════════════════════════════════════════
+function SearchScreen({ setScreen, toast }) {
+  const [q, setQ] = useState("");
+  const [activeType, setActiveType] = useState("all");
+  const [addModal, setAddModal] = useState(null);
+
+  const types = ["all","sightseeing","food","adventure","culture","nightlife"];
+  const filtered = MOCK.activities.filter(a =>
+    (activeType==="all" || a.type===activeType) &&
+    (!q || a.name.toLowerCase().includes(q.toLowerCase()) || a.city.toLowerCase().includes(q.toLowerCase()))
+  );
+
+  return (
+    <div className="page">
+      <div className="page-wide">
+        <h1 style={{fontSize:28,marginBottom:20}}>Explore Activities</h1>
+        <div className="flex gap-12 mb-16">
+          <input className="input" style={{flex:1}} placeholder="Search activities, cities..." value={q} onChange={e=>setQ(e.target.value)} />
+          <button className="btn btn-ghost btn-sm">⚙ Filter</button>
+          <button className="btn btn-ghost btn-sm">⬆⬇ Sort</button>
+        </div>
+
+        {/* Type chips */}
+        <div className="flex gap-8 mb-24" style={{flexWrap:"wrap"}}>
+          {types.map(t => (
+            <button key={t} className={`chip ${activeType===t?"active":""}`} onClick={()=>setActiveType(t)}>
+              {t.charAt(0).toUpperCase()+t.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="empty-state">
+            <div className="icon">🔍</div>
+            <p>No activities found. Try a different search.</p>
+          </div>
+        ) : (
+          <div className="flex-col gap-12">
+            {filtered.map(a => (
+              <div key={a.id} className="card activity-card" style={{padding:0,overflow:"hidden"}}>
+                <div style={{display:"flex",gap:0,alignItems:"stretch"}}>
+                  <div style={{width:90,background:"linear-gradient(135deg,var(--primary),var(--accent))",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32}}>
+                    {a.emoji}
+                  </div>
+                  <div style={{flex:1,padding:16}}>
+                    <div style={{fontWeight:600,fontSize:15}}>{a.name}</div>
+                    <div className="text-muted text-sm">{a.city}</div>
+                    <div className="flex gap-8 mt-8" style={{flexWrap:"wrap"}}>
+                      <span className="chip" style={{padding:"3px 10px",fontSize:12}}>{a.type}</span>
+                      <span className="pill pill-info" style={{fontSize:12}}>{a.duration}</span>
+                      <span style={{fontSize:13}}>{"★".repeat(Math.round(a.rating))} {a.rating}</span>
+                    </div>
+                  </div>
+                  <div style={{padding:16,display:"flex",flexDirection:"column",alignItems:"flex-end",justifyContent:"center",gap:8}}>
+                    <span style={{fontWeight:700,fontSize:16,color:"var(--primary)"}}>
+                      {a.cost === 0 ? "Free" : `$${a.cost}`}
+                    </span>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>setAddModal(a)}>+ Add to Trip</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {addModal && (
+        <Modal title={`Add "${addModal.name}" to Trip`} onClose={()=>setAddModal(null)}>
+          <div className="input-group mb-16">
+            <label className="input-label">Select Trip</label>
+            <select className="input">
+              {MOCK.trips.map(t=><option key={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+          <div className="input-group mb-20">
+            <label className="input-label">Scheduled Date</label>
+            <input type="date" className="input" />
+          </div>
+          <div className="flex gap-12">
+            <button className="btn btn-ghost flex-1" onClick={()=>setAddModal(null)}>Cancel</button>
+            <button className="btn btn-primary flex-1" onClick={()=>{setAddModal(null);toast("Activity added to trip! ✅");}}>Add Activity</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 8 — ITINERARY VIEW + BUDGET
+// ══════════════════════════════════════════════════════════════════════════════
+function ItineraryView({ trip, setScreen, toast }) {
+  const t = trip || MOCK.trips[0];
+  const spent = t.spent || 22000;
+  const budget = t.budget || 20000;
+  const overBudget = spent > budget;
+
+  const days = [
+    { day:1, date:"May 25", activities:[{name:"Arrive CDG Airport",cost:0},{name:"Hotel Check-in",cost:0},{name:"Seine River Walk",cost:0}] },
+    { day:2, date:"May 26", activities:[{name:"Eiffel Tower",cost:25},{name:"Louvre Museum",cost:20},{name:"Dinner at Le Marais",cost:80}] },
+    { day:3, date:"May 27", activities:[{name:"Versailles Day Trip",cost:45},{name:"Sacré-Cœur",cost:0},{name:"Moulin Rouge Show",cost:120}] },
+  ];
+
+  const catBudgets = [
+    {cat:"Stay",    pct:40, color:"#1A6B72"},
+    {cat:"Travel",  pct:30, color:"#E8612C"},
+    {cat:"Food",    pct:15, color:"#3D9970"},
+    {cat:"Activities", pct:15, color:"#FF851B"},
+  ];
+
+  return (
+    <div className="page">
+      <div className="page-wide">
+        <div className="flex items-center gap-12 mb-20">
+          <button className="btn btn-ghost btn-sm" onClick={()=>setScreen("trips")}>← Back</button>
+          <h1 style={{fontSize:26}}>{t.name}</h1>
+          <span className={`pill ${t.status==="upcoming"?"pill-warning":"pill-success"}`}>{t.status}</span>
+          <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setScreen("itinerary-builder")}>✏️ Edit</button>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setScreen("public-trip")}>🔗 Share</button>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setScreen("invoice")}>📄 Invoice</button>
+          </div>
+        </div>
+
+        {overBudget && (
+          <div style={{background:"#fde",border:"1.5px solid var(--danger)",borderRadius:10,padding:"12px 16px",marginBottom:20,color:"var(--danger)",fontWeight:500}}>
+            ⚠️ Over budget by ${(spent - budget).toLocaleString()}! Review your expenses.
+          </div>
+        )}
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 300px",gap:24}}>
+          {/* Day-by-day */}
+          <div>
+            <div className="flex gap-8 mb-20">
+              <button className="btn btn-primary btn-sm">📋 List View</button>
+              <button className="btn btn-ghost btn-sm">📅 Calendar View</button>
+            </div>
+            {days.map(d => (
+              <div key={d.day} className="day-block">
+                <span className="day-label">Day {d.day} · {d.date}</span>
+                {d.activities.map((a,i)=>(
+                  <div key={i}>
+                    <div className="activity-row">
+                      <span>{a.name}</span>
+                      <span className="mono" style={{color:"var(--primary)",fontWeight:600}}>
+                        {a.cost === 0 ? "Free" : `$${a.cost}`}
+                      </span>
+                    </div>
+                    {i < d.activities.length-1 && <div className="flow-arrow">↓</div>}
+                  </div>
+                ))}
+                <div style={{textAlign:"right",marginTop:8,fontWeight:600,color:"var(--text-muted)",fontSize:13}}>
+                  Day Total: ${d.activities.reduce((s,a)=>s+a.cost,0)}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Budget Panel */}
+          <div className="flex-col gap-16">
+            <div className="budget-panel">
+              <h3 style={{marginBottom:16}}>💰 Budget Tracker</h3>
+              <div className="input-group mb-12">
+                <label className="input-label">Total Budget ($)</label>
+                <input type="number" className="input" defaultValue={budget} />
+              </div>
+              <div className="flex justify-between mb-4 text-sm">
+                <span className="text-muted">Spent</span>
+                <span className="font-bold" style={{color:overBudget?"var(--danger)":"var(--text)"}}>${spent.toLocaleString()}</span>
+              </div>
+              <div className="progress-bar mb-8">
+                <div className={`progress-fill ${overBudget?"over":""}`} style={{width:`${Math.min(pct(spent,budget),100)}%`}} />
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted">Remaining</span>
+                <span className="font-bold" style={{color:overBudget?"var(--danger)":"var(--success)"}}>
+                  {overBudget ? "-" : ""}${Math.abs(budget-spent).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            <div className="budget-panel">
+              <h3 style={{marginBottom:16}}>By Category</h3>
+              {catBudgets.map(c => (
+                <div key={c.cat} className="mb-12">
+                  <div className="flex justify-between mb-4 text-sm">
+                    <span>{c.cat}</span>
+                    <span className="font-bold">{c.pct}%</span>
+                  </div>
+                  <div className="progress-bar">
+                    <div style={{height:"100%",width:`${c.pct}%`,background:c.color,borderRadius:4}}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex-col gap-8">
+              <button className="btn btn-ghost w-full btn-sm" onClick={()=>setScreen("checklist")}>☑️ Packing Checklist</button>
+              <button className="btn btn-ghost w-full btn-sm" onClick={()=>setScreen("notes")}>📝 Trip Notes</button>
+              <button className="btn btn-ghost w-full btn-sm" onClick={()=>setScreen("invoice")}>📄 View Invoice</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 9 — COMMUNITY
+// ══════════════════════════════════════════════════════════════════════════════
+function CommunityScreen({ toast }) {
+  const [liked, setLiked] = useState([]);
+  const [saved, setSaved] = useState([]);
+  const [q, setQ] = useState("");
+
+  const toggleLike = id => setLiked(prev => prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
+  const toggleSave = id => {
+    setSaved(prev => prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
+    toast(saved.includes(id) ? "Removed from saved" : "Trip saved! 🔖");
+  };
+
+  return (
+    <div className="page">
+      <div className="page-wide">
+        <h1 style={{fontSize:28,marginBottom:20}}>Community</h1>
+        <div className="flex gap-12 mb-24">
+          <input className="input" style={{flex:1}} placeholder="Search community trips..." value={q} onChange={e=>setQ(e.target.value)} />
+          <button className="btn btn-ghost btn-sm">Filter</button>
+          <button className="btn btn-ghost btn-sm">Sort by Popular</button>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 260px",gap:24}}>
+          <div className="flex-col gap-12">
+            {MOCK.community.map(post => (
+              <div key={post.id} className="card feed-card" style={{display:"flex",gap:0,padding:0,overflow:"hidden"}}>
+                <div style={{width:120,background:"linear-gradient(135deg,var(--primary),var(--accent))",display:"flex",alignItems:"center",justifyContent:"center",fontSize:40}}>✈️</div>
+                <div style={{flex:1,padding:20}}>
+                  <div className="flex items-center gap-10 mb-8">
+                    <div className="feed-avatar" style={{width:36,height:36,fontSize:13}}>{post.avatar}</div>
+                    <span style={{fontWeight:600}}>{post.user}</span>
+                  </div>
+                  <h3 style={{fontSize:17,marginBottom:6}}>{post.trip}</h3>
+                  <p className="text-muted text-sm mb-12">{post.desc}</p>
+                  <div className="flex gap-8 mb-12" style={{flexWrap:"wrap"}}>
+                    {post.tags.map(tag=><span key={tag} className="chip" style={{padding:"3px 10px",fontSize:12}}>#{tag}</span>)}
+                  </div>
+                  <div className="flex gap-12 items-center">
+                    <button className={`feed-action-btn ${liked.includes(post.id)?"liked":""}`} onClick={()=>toggleLike(post.id)}>
+                      ❤️ {post.likes + (liked.includes(post.id)?1:0)}
+                    </button>
+                    <button className="feed-action-btn">💬 {post.comments}</button>
+                    <button className={`feed-action-btn ${saved.includes(post.id)?"liked":""}`} onClick={()=>toggleSave(post.id)}>
+                      🔖 {post.saves}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" style={{marginLeft:"auto"}}>View Trip →</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Sidebar */}
+          <div className="flex-col gap-16">
+            <div className="budget-panel">
+              <h3 style={{marginBottom:16}}>🔥 Trending</h3>
+              {MOCK.destinations.slice(0,4).map((d,i)=>(
+                <div key={d.id} className="flex items-center gap-10 mb-12">
+                  <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:"var(--text-muted)",width:20}}>#{i+1}</span>
+                  <span style={{fontSize:20}}>{d.emoji}</span>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:13}}>{d.city}</div>
+                    <div className="text-muted text-sm">{d.country}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="budget-panel">
+              <h3 style={{marginBottom:16}}>🏆 Top Travelers</h3>
+              {["Priya S.","Arjun M.","Sara L."].map((u,i)=>(
+                <div key={u} className="flex items-center gap-10 mb-12">
+                  <div className="feed-avatar" style={{width:34,height:34,fontSize:13,flexShrink:0}}>{u.split(" ").map(x=>x[0]).join("")}</div>
+                  <div style={{fontWeight:600,fontSize:13}}>{u}</div>
+                  <span className="pill pill-info" style={{marginLeft:"auto",fontSize:11}}>{8-i} trips</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 10 — PACKING CHECKLIST
+// ══════════════════════════════════════════════════════════════════════════════
+function ChecklistScreen({ toast }) {
+  const [items, setItems] = useState(MOCK.checklist);
+  const [newItem, setNewItem] = useState("");
+  const [newCat, setNewCat] = useState("Documents");
+  const [addModal, setAddModal] = useState(false);
+  const [resetModal, setResetModal] = useState(false);
+
+  const toggle = id => setItems(prev => prev.map(x => x.id===id?{...x,packed:!x.packed}:x));
+  const del = id => setItems(prev => prev.filter(x=>x.id!==id));
+  const addItem = () => {
+    if (!newItem) return;
+    setItems(prev=>[...prev,{id:`c${Date.now()}`,name:newItem,category:newCat,packed:false}]);
+    setNewItem(""); setAddModal(false);
+    toast("Item added to checklist!");
+  };
+  const resetAll = () => { setItems(prev=>prev.map(x=>({...x,packed:false}))); setResetModal(false); toast("Checklist reset"); };
+
+  const cats = [...new Set(items.map(x=>x.category))];
+  const totalPacked = items.filter(x=>x.packed).length;
+
+  return (
+    <div className="page">
+      <div className="page-narrow">
+        <div className="flex items-center justify-between mb-20">
+          <h1 style={{fontSize:28}}>Packing Checklist</h1>
+          <select className="input" style={{width:220}}>
+            {MOCK.trips.map(t=><option key={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+
+        {/* Progress */}
+        <div className="card mb-24">
+          <div className="flex justify-between mb-8">
+            <span className="font-bold">{totalPacked}/{items.length} items packed</span>
+            <span className="text-muted text-sm">{pct(totalPacked,items.length)}%</span>
+          </div>
+          <div className="progress-bar" style={{height:12}}>
+            <div className="progress-fill" style={{width:`${pct(totalPacked,items.length)}%`}}/>
+          </div>
+        </div>
+
+        {/* Categories */}
+        {cats.map(cat => {
+          const catItems = items.filter(x=>x.category===cat);
+          const catPacked = catItems.filter(x=>x.packed).length;
+          return (
+            <div key={cat} className="card mb-16">
+              <div className="flex items-center justify-between mb-12">
+                <h3 style={{fontSize:15}}>{cat}</h3>
+                <span className="pill pill-info" style={{fontSize:12}}>{catPacked}/{catItems.length}</span>
+              </div>
+              {catItems.map(item => (
+                <div key={item.id} className="checklist-item">
+                  <div className={`checkbox ${item.packed?"checked":""}`} onClick={()=>toggle(item.id)}>
+                    {item.packed && "✓"}
+                  </div>
+                  <span className={`item-name ${item.packed?"crossed":""}`} style={{flex:1}}>{item.name}</span>
+                  <button style={{background:"none",border:"none",cursor:"pointer",color:"var(--text-muted)",opacity:0,transition:"var(--transition)"}} className="del-btn" onClick={()=>del(item.id)}>🗑</button>
+                </div>
+              ))}
+              <div style={{marginTop:8}}>
+                <input className="input" style={{fontSize:13}} placeholder="+ Add item..." onKeyDown={e=>{if(e.key==="Enter"&&e.target.value){setItems(prev=>[...prev,{id:`c${Date.now()}`,name:e.target.value,category:cat,packed:false}]);e.target.value="";}}} />
+              </div>
+            </div>
+          );
+        })}
+
+        <div className="flex gap-12">
+          <button className="btn btn-primary" onClick={()=>setAddModal(true)}>+ Add Item</button>
+          <button className="btn btn-ghost" onClick={()=>setResetModal(true)}>Reset All</button>
+          <button className="btn btn-ghost">Share Checklist</button>
+        </div>
+      </div>
+
+      {addModal && (
+        <Modal title="Add Checklist Item" onClose={()=>setAddModal(false)}>
+          <div className="input-group mb-12">
+            <label className="input-label">Item Name</label>
+            <input className="input" value={newItem} onChange={e=>setNewItem(e.target.value)} placeholder="e.g. Sunscreen" autoFocus />
+          </div>
+          <div className="input-group mb-20">
+            <label className="input-label">Category</label>
+            <select className="input" value={newCat} onChange={e=>setNewCat(e.target.value)}>
+              {["Documents","Clothing","Electronics","Toiletries","Other"].map(c=><option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-12">
+            <button className="btn btn-ghost flex-1" onClick={()=>setAddModal(false)}>Cancel</button>
+            <button className="btn btn-primary flex-1" onClick={addItem}>Add Item</button>
+          </div>
+        </Modal>
+      )}
+
+      {resetModal && (
+        <Modal title="Reset Checklist?" onClose={()=>setResetModal(false)}>
+          <p className="text-muted mb-24">All items will be marked as unpacked.</p>
+          <div className="flex gap-12">
+            <button className="btn btn-ghost flex-1" onClick={()=>setResetModal(false)}>Cancel</button>
+            <button className="btn btn-danger flex-1" onClick={resetAll}>Reset All</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 11 — PUBLIC TRIP
+// ══════════════════════════════════════════════════════════════════════════════
+function PublicTripScreen({ trip, setScreen, toast }) {
+  const t = trip || MOCK.trips[0];
+  return (
+    <div className="page">
+      <div className="page-narrow">
+        <div className="trip-hero">
+          <div>
+            <p style={{color:"rgba(255,255,255,0.7)",marginBottom:8}}>Public Trip</p>
+            <h1>{t.name}</h1>
+            <div style={{display:"flex",gap:12,marginTop:12,flexWrap:"wrap"}}>
+              <span style={{color:"rgba(255,255,255,0.85)",fontSize:14}}>📅 {formatDate(t.startDate)} → {formatDate(t.endDate)}</span>
+              <span style={{color:"rgba(255,255,255,0.85)",fontSize:14}}>📍 {t.destination}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Attribution */}
+        <div className="flex items-center gap-12 mb-24 card">
+          <div className="avatar">{MOCK.user.avatar}</div>
+          <div>
+            <div style={{fontWeight:600}}>Planned by {MOCK.user.firstName} {MOCK.user.lastName}</div>
+            <div className="text-muted text-sm">Shared publicly · {Math.floor(Math.random()*500)+100} views</div>
+          </div>
+          <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+            <button className="btn btn-ghost btn-sm">📋 Copy Trip</button>
+            <button className="btn btn-ghost btn-sm" onClick={()=>{navigator.clipboard?.writeText?.(window.location.href);toast("Link copied! 🔗");}}>🔗 Share</button>
+          </div>
+        </div>
+
+        {/* Day breakdown */}
+        <h2 style={{marginBottom:16}}>Itinerary</h2>
+        {MOCK.itinerarySections.map((s,i)=>(
+          <div key={s.id} className="card mb-16">
+            <div className="flex items-center justify-between mb-8">
+              <h3 style={{fontSize:16}}>{s.title}</h3>
+              <span className="mono text-sm">{formatDate(s.startDate)} — {formatDate(s.endDate)}</span>
+            </div>
+            <p className="text-muted">{s.description}</p>
+            <div style={{marginTop:12,fontWeight:600,color:"var(--primary)"}}>${s.budget.toLocaleString()} budget</div>
+          </div>
+        ))}
+
+        {/* Social share */}
+        <div className="card" style={{textAlign:"center"}}>
+          <p className="text-muted mb-16">Share this trip</p>
+          <div className="flex gap-8" style={{justifyContent:"center"}}>
+            {["🐦 Twitter","💬 WhatsApp","📋 Copy Link"].map(s=>(
+              <button key={s} className="btn btn-ghost btn-sm" onClick={()=>toast("Shared!")}>{s}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 12 — TRIP NOTES
+// ══════════════════════════════════════════════════════════════════════════════
+function NotesScreen({ toast }) {
+  const [notes, setNotes] = useState(MOCK.notes);
+  const [q, setQ] = useState("");
+  const [groupBy, setGroupBy] = useState("all");
+  const [addModal, setAddModal] = useState(false);
+  const [newNote, setNewNote] = useState({ title:"", content:"", day:1, stop:"" });
+
+  const filtered = notes.filter(n =>
+    (!q || n.title.toLowerCase().includes(q.toLowerCase()) || n.content.toLowerCase().includes(q.toLowerCase()))
+  ).sort((a,b) => (b.pinned?1:0)-(a.pinned?1:0));
+
+  const togglePin = id => setNotes(prev => prev.map(n=>n.id===id?{...n,pinned:!n.pinned}:n));
+  const delNote  = id => { setNotes(prev=>prev.filter(n=>n.id!==id)); toast("Note deleted"); };
+  const saveNote = () => {
+    if (!newNote.title) return;
+    setNotes(prev=>[{id:`n${Date.now()}`,...newNote,date:new Date().toISOString().slice(0,10),pinned:false},...prev]);
+    setNewNote({title:"",content:"",day:1,stop:""});
+    setAddModal(false);
+    toast("Note saved! 📝");
+  };
+
+  const grouped = groupBy === "day"
+    ? [...new Set(filtered.map(n=>n.day))].sort().reduce((acc,d)=>({...acc,[d]:filtered.filter(n=>n.day===d)}),{})
+    : { all: filtered };
+
+  return (
+    <div className="page">
+      <div className="page-wide">
+        {/* Top bar */}
+        <div className="flex gap-12 mb-20 items-center">
+          <input className="input" style={{flex:1}} placeholder="Search notes..." value={q} onChange={e=>setQ(e.target.value)} />
+          <button className="btn btn-ghost btn-sm">Group by</button>
+          <button className="btn btn-ghost btn-sm">Filter</button>
+          <button className="btn btn-ghost btn-sm">Sort by</button>
+        </div>
+
+        <div className="flex items-center justify-between mb-16">
+          <div className="flex items-center gap-12">
+            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24}}>Trip Notes</h2>
+            <select className="input" style={{width:220,fontSize:13}}>
+              {MOCK.trips.map(t=><option key={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setAddModal(true)}>+ Add Note</button>
+        </div>
+
+        {/* Filter toggle */}
+        <div className="flex gap-4 mb-20" style={{background:"var(--border)",borderRadius:10,padding:4,display:"inline-flex"}}>
+          {["all","by Day"].map(g=>(
+            <button key={g} onClick={()=>setGroupBy(g==="all"?"all":"day")} style={{padding:"7px 18px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:500,background:groupBy===(g==="all"?"all":"day")?"var(--primary)":"transparent",color:groupBy===(g==="all"?"all":"day")?"white":"var(--text-muted)",transition:"var(--transition)"}}>
+              {g}
+            </button>
+          ))}
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="empty-state">
+            <div className="icon">📓</div>
+            <p>No notes yet. Start journaling your trip!</p>
+            <button className="btn btn-primary" onClick={()=>setAddModal(true)}>+ Add your first note</button>
+          </div>
+        ) : (
+          Object.entries(grouped).map(([group, groupNotes]) => (
+            <div key={group}>
+              {groupBy === "day" && (
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,marginTop:8}}>
+                  <span className="day-label">Day {group}</span>
+                </div>
+              )}
+              <div className="flex-col gap-12 mb-24">
+                {groupNotes.map(n=>(
+                  <div key={n.id} className={`note-card ${n.pinned?"pinned":""}`}>
+                    {n.pinned && <span className="pill pill-warning" style={{fontSize:11,marginBottom:8,display:"inline-block"}}>📌 Pinned</span>}
+                    <div className="note-actions">
+                      <button style={{background:"none",border:"none",cursor:"pointer",fontSize:16}} onClick={()=>togglePin(n.id)} title="Pin">📌</button>
+                      <button style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"var(--danger)"}} onClick={()=>delNote(n.id)} title="Delete">🗑</button>
+                    </div>
+                    <h3 style={{fontSize:15,fontWeight:600,marginBottom:6}}>{n.title}</h3>
+                    <p className="text-muted text-sm" style={{marginBottom:10}}>{n.content}</p>
+                    <span className="pill pill-muted mono" style={{fontSize:11}}>Day {n.day}: {formatDate(n.date)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {addModal && (
+        <Modal title="Add Note" onClose={()=>setAddModal(false)}>
+          <div className="input-group mb-12">
+            <label className="input-label">Note Title *</label>
+            <input className="input" placeholder="e.g. Hotel check-in details" value={newNote.title} onChange={e=>setNewNote(n=>({...n,title:e.target.value}))} autoFocus />
+          </div>
+          <div className="input-group mb-12">
+            <label className="input-label">Content</label>
+            <textarea className="input textarea" style={{minHeight:120}} placeholder="Write your note here..." value={newNote.content} onChange={e=>setNewNote(n=>({...n,content:e.target.value}))} />
+          </div>
+          <div className="grid-2 gap-12 mb-20">
+            <div className="input-group">
+              <label className="input-label">Link to Day</label>
+              <select className="input" value={newNote.day} onChange={e=>setNewNote(n=>({...n,day:Number(e.target.value)}))}>
+                {[1,2,3,4,5,6,7,8,9,10].map(d=><option key={d} value={d}>Day {d}</option>)}
+              </select>
+            </div>
+            <div className="input-group">
+              <label className="input-label">Link to Stop</label>
+              <select className="input">
+                <option>-- Select Stop --</option>
+                {["Paris","Rome","Barcelona"].map(c=><option key={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-12">
+            <button className="btn btn-ghost flex-1" onClick={()=>setAddModal(false)}>Cancel</button>
+            <button className="btn btn-primary flex-1" onClick={saveNote}>Save Note</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 13 — ADMIN DASHBOARD
+// ══════════════════════════════════════════════════════════════════════════════
+function AdminScreen() {
+  const [tab, setTab] = useState("analytics");
+  const stats = MOCK.adminStats;
+
+  const BarChart = ({ data, label }) => {
+    const max = Math.max(...data);
+    return (
+      <div style={{display:"flex",alignItems:"flex-end",gap:6,height:80}}>
+        {data.map((v,i)=>(
+          <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+            <div style={{width:"100%",background:"var(--primary)",borderRadius:"4px 4px 0 0",height:`${(v/max)*70}px`,transition:"height 0.4s ease"}}/>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const users = [
+    { name:"Priya Sharma", email:"priya@ex.com", joined:"Jan 2024", trips:8, role:"user" },
+    { name:"Arjun M.",     email:"arjun@ex.com", joined:"Mar 2024", trips:12, role:"admin" },
+    { name:"Sara Liu",     email:"sara@ex.com",  joined:"Apr 2024", trips:5, role:"user" },
+    { name:"James Carter", email:"james@traveloop.com", joined:"2023", trips:3, role:"admin" },
+  ];
+
+  return (
+    <div className="page">
+      <div className="page-wide">
+        <h1 style={{fontSize:28,marginBottom:20}}>Admin Dashboard</h1>
+        <div className="nav-tabs">
+          {[["analytics","📊 Analytics"],["users","👥 Users"],["cities","🏙 Cities"],["activities","🎯 Activities"]].map(([id,label])=>(
+            <button key={id} className={`nav-tab ${tab===id?"active":""}`} onClick={()=>setTab(id)}>{label}</button>
+          ))}
+        </div>
+
+        {tab === "analytics" && (
+          <>
+            <div className="grid-3 mb-24" style={{gridTemplateColumns:"repeat(4,1fr)"}}>
+              {[
+                { label:"Total Users",      value:stats.totalUsers.toLocaleString(),  icon:"👥" },
+                { label:"Total Trips",      value:stats.totalTrips.toLocaleString(),  icon:"✈️" },
+                { label:"Active Today",     value:stats.activeToday,                  icon:"🟢" },
+                { label:"Avg Trip (days)",  value:stats.avgTripDays,                  icon:"📅" },
+              ].map(k=>(
+                <div key={k.label} className="kpi-card">
+                  <div style={{fontSize:24,marginBottom:8}}>{k.icon}</div>
+                  <div className="kpi-value">{k.value}</div>
+                  <div className="kpi-label">{k.label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="grid-2 mb-24">
+              <div className="card">
+                <h3 style={{marginBottom:16}}>Registrations (Last 7 Days)</h3>
+                <BarChart data={stats.registrationsByDay} label="Users" />
+                <div className="flex justify-between mt-8 text-muted text-sm">
+                  {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=><span key={d}>{d}</span>)}
+                </div>
+              </div>
+              <div className="card">
+                <h3 style={{marginBottom:16}}>Trips by Month</h3>
+                <BarChart data={stats.tripsByMonth} label="Trips" />
+                <div className="flex justify-between mt-8 text-muted text-sm">
+                  {["J","F","M","A","M","J","J","A","S","O","N","D"].map(m=><span key={m}>{m}</span>)}
+                </div>
+              </div>
+            </div>
+            <div className="card mb-24">
+              <h3 style={{marginBottom:16}}>Trip Status Distribution</h3>
+              <div className="flex gap-16" style={{flexWrap:"wrap"}}>
+                {Object.entries(stats.statusDist).map(([k,v])=>(
+                  <div key={k} style={{flex:1,textAlign:"center",minWidth:100}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:"var(--primary)"}}>{v}%</div>
+                    <div className="text-muted text-sm capitalize">{k}</div>
+                    <div className="progress-bar mt-8"><div className="progress-fill" style={{width:`${v}%`}}/></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {tab === "users" && (
+          <>
+            <div className="flex gap-12 mb-16">
+              <input className="input" style={{maxWidth:320}} placeholder="Search users..." />
+              <button className="btn btn-ghost btn-sm">Filter by Role</button>
+            </div>
+            <div className="card">
+              <table className="table">
+                <thead><tr>
+                  <th>User</th><th>Email</th><th>Joined</th><th>Trips</th><th>Role</th><th>Actions</th>
+                </tr></thead>
+                <tbody>
+                  {users.map(u=>(
+                    <tr key={u.email}>
+                      <td style={{fontWeight:600}}>{u.name}</td>
+                      <td className="text-muted">{u.email}</td>
+                      <td className="mono text-sm">{u.joined}</td>
+                      <td>{u.trips}</td>
+                      <td><span className={`pill ${u.role==="admin"?"pill-info":"pill-muted"}`}>{u.role}</span></td>
+                      <td>
+                        <div className="flex gap-6">
+                          <button className="btn btn-ghost btn-sm">Edit</button>
+                          <button className="btn btn-sm" style={{background:"var(--bg)",border:"1.5px solid var(--border)",color:"var(--danger)"}}>Ban</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {tab === "cities" && (
+          <div className="card">
+            <h3 style={{marginBottom:16}}>Top Cities by Trip Count</h3>
+            {stats.topCities.map((c,i)=>(
+              <div key={c.city} className="flex items-center gap-14 mb-16">
+                <span className="mono" style={{width:24,color:"var(--text-muted)"}}>#{i+1}</span>
+                <span style={{fontWeight:600,flex:1}}>{c.city}</span>
+                <div className="progress-bar" style={{flex:2}}>
+                  <div className="progress-fill" style={{width:`${pct(c.count,stats.topCities[0].count)}%`}}/>
+                </div>
+                <span className="mono text-sm" style={{width:50,textAlign:"right"}}>{c.count.toLocaleString()}</span>
+                {i < 3 && <span>🔥</span>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "activities" && (
+          <div className="card">
+            <table className="table">
+              <thead><tr><th>#</th><th>Activity</th><th>City</th><th>Type</th><th>Rating</th><th>Bookings</th></tr></thead>
+              <tbody>
+                {MOCK.activities.map((a,i)=>(
+                  <tr key={a.id}>
+                    <td className="mono text-sm">{i+1}</td>
+                    <td style={{fontWeight:600}}>{a.name}</td>
+                    <td className="text-muted">{a.city}</td>
+                    <td><span className="chip" style={{fontSize:12}}>{a.type}</span></td>
+                    <td>{"★".repeat(Math.round(a.rating))} {a.rating}</td>
+                    <td className="mono">{Math.floor(Math.random()*500)+50}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREEN 14 — INVOICE
+// ══════════════════════════════════════════════════════════════════════════════
+function InvoiceScreen({ trip, setScreen, toast }) {
+  const inv = MOCK.invoice;
+  const [status, setStatus] = useState(inv.status);
+  const [payModal, setPayModal] = useState(false);
+  const t = trip || MOCK.trips[0];
+
+  const statusClass = { pending:"invoice-status-pending", paid:"invoice-status-paid", overdue:"invoice-status-overdue" }[status];
+
+  const markPaid = () => { setStatus("paid"); setPayModal(false); toast("Invoice marked as paid! ✅"); };
+
+  return (
+    <div className="page">
+      <div className="page-wide">
+        {/* Nav */}
+        <div className="flex items-center justify-between mb-20">
+          <div>
+            <button className="btn btn-ghost btn-sm mb-8" onClick={()=>setScreen("itinerary-view")}>← Back to My Trips</button>
+            <h1 style={{fontSize:26}}>Invoice</h1>
+          </div>
+          <div className="flex gap-12">
+            <input className="input" placeholder="Search invoices..." style={{width:260}} />
+            <button className="btn btn-ghost btn-sm">⚙ Filter</button>
+            <button className="btn btn-ghost btn-sm">⬆⬇ Sort</button>
+          </div>
+        </div>
+
+        {/* Invoice Header Card */}
+        <div className="card mb-24">
+          <div className="invoice-header">
+            {/* Left: Trip Info */}
+            <div className="flex gap-16 items-start">
+              <div style={{width:80,height:80,borderRadius:10,background:"linear-gradient(135deg,var(--primary),var(--accent))",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,flexShrink:0}}>
+                {t.emoji}
+              </div>
+              <div>
+                <h3 style={{fontSize:16,marginBottom:4}}>{t.name}</h3>
+                <div className="text-muted text-sm">{formatDate(t.startDate)} – {formatDate(t.endDate)}</div>
+                <div className="text-muted text-sm mt-4">· {inv.travelers.length} travelers</div>
+                <div className="text-muted text-sm">Created by {inv.travelers[0]}</div>
+              </div>
+            </div>
+            {/* Center: Invoice Metadata */}
+            <div>
+              <div className="mb-8"><span className="text-muted text-sm">Invoice ID: </span><span className="mono text-sm font-bold">{inv.number}</span></div>
+              <div className="mb-8"><span className="text-muted text-sm">Generated: </span><span className="text-sm">{formatDate(inv.generatedDate)}</span></div>
+              <div className="mb-12">
+                <div className="text-muted text-sm mb-4">Travelers:</div>
+                <div style={{fontSize:13}}>{inv.travelers.join(", ")}</div>
+              </div>
+              <div>
+                <span className="text-muted text-sm">Status: </span>
+                <span className={`pill ${statusClass}`} style={{marginLeft:6}}>{status.charAt(0).toUpperCase()+status.slice(1)}</span>
+              </div>
+            </div>
+            {/* Right: Budget Insights */}
+            <div className="budget-panel" style={{border:"1.5px solid var(--border)"}}>
+              <h4 style={{marginBottom:12}}>💰 Budget Insights</h4>
+              <div className="flex justify-between mb-4 text-sm"><span className="text-muted">Total Budget</span><span>${inv.totalBudget.toLocaleString()}</span></div>
+              <div className="flex justify-between mb-4 text-sm"><span className="text-muted">Total Spent</span><span>${inv.totalSpent.toLocaleString()}</span></div>
+              <div className="flex justify-between mb-12 text-sm">
+                <span className="text-muted">Remaining</span>
+                <span style={{color:"var(--danger)",fontWeight:600}}>-${(inv.totalSpent-inv.totalBudget).toLocaleString()}</span>
+              </div>
+              <div className="progress-bar mb-12">
+                <div className="progress-fill over" style={{width:"100%"}}/>
+              </div>
+              <button className="btn btn-ghost btn-sm w-full" onClick={()=>setScreen("itinerary-view")}>View Full Budget →</button>
+            </div>
+          </div>
+        </div>
+
+        {/* Line Items Table */}
+        <div className="card mb-24">
+          <table className="table">
+            <thead><tr><th>#</th><th>Category</th><th>Description</th><th>Qty / Details</th><th>Unit Cost</th><th>Amount</th></tr></thead>
+            <tbody>
+              {inv.lineItems.map((li,i)=>(
+                <tr key={li.id}>
+                  <td className="mono text-sm">{i+1}</td>
+                  <td><span className="pill pill-info" style={{fontSize:12}}>{li.cat}</span></td>
+                  <td>{li.desc}</td>
+                  <td className="text-muted text-sm">{li.qty}</td>
+                  <td className="mono">${li.unit.toLocaleString()}</td>
+                  <td className="mono font-bold">${li.amount.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {status !== "paid" && (
+            <button className="btn btn-ghost btn-sm mt-12">+ Add Row</button>
+          )}
+
+          {/* Totals */}
+          <div style={{maxWidth:280,marginLeft:"auto",marginTop:20}}>
+            {[
+              { label:"Subtotal", val:inv.subtotal },
+              { label:`Tax (${inv.taxRate}%)`, val:inv.taxAmount },
+              { label:"Discount", val:-inv.discount },
+            ].map(r=>(
+              <div key={r.label} className="flex justify-between mb-8 text-sm">
+                <span className="text-muted">{r.label}</span>
+                <span className="mono">{r.val < 0 ? `-$${Math.abs(r.val)}` : `$${r.val.toLocaleString()}`}</span>
+              </div>
+            ))}
+            <div className="divider"/>
+            <div className="flex justify-between" style={{fontWeight:700,fontSize:17}}>
+              <span>Grand Total</span>
+              <span className="mono" style={{color:"var(--primary)"}}>${inv.grandTotal.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="flex gap-12 items-center">
+          <button className="btn btn-ghost" onClick={()=>toast("Downloading invoice...")}>⬇ Download Invoice</button>
+          <button className="btn btn-ghost" onClick={()=>toast("Exporting as PDF...")}>📄 Export as PDF</button>
+          {status !== "paid" && (
+            <button className="btn btn-primary" style={{marginLeft:"auto"}} onClick={()=>setPayModal(true)}>✅ Mark as Paid</button>
+          )}
+          {status === "paid" && (
+            <span className="pill pill-success" style={{marginLeft:"auto",fontSize:14,padding:"10px 20px"}}>✅ Invoice Paid</span>
+          )}
+        </div>
+      </div>
+
+      {payModal && (
+        <Modal title="Mark Invoice as Paid?" onClose={()=>setPayModal(false)}>
+          <p className="text-muted mb-8">Invoice: <span className="mono">{inv.number}</span></p>
+          <p className="text-muted mb-8">Amount: <span className="font-bold">${inv.grandTotal.toLocaleString()}</span></p>
+          <p className="text-muted mb-24">This action will lock the invoice as read-only.</p>
+          <div className="flex gap-12">
+            <button className="btn btn-ghost flex-1" onClick={()=>setPayModal(false)}>Cancel</button>
+            <button className="btn btn-primary flex-1" onClick={markPaid}>Confirm Payment</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ROOT APP
+// ══════════════════════════════════════════════════════════════════════════════
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [screen, setScreen] = useState("auth");
+  const [selectedTrip, setSelectedTrip] = useState(null);
+  const { toasts, add: toast } = useToast();
+
+  const handleLogin = (u) => { setUser(u); setScreen("dashboard"); };
+  const handleLogout = () => { setUser(null); setScreen("auth"); };
+
+  const renderScreen = () => {
+    if (!user) return <AuthScreen onLogin={handleLogin} toast={toast} />;
+    switch(screen) {
+      case "dashboard":        return <Dashboard user={user} setScreen={setScreen} setSelectedTrip={setSelectedTrip} toast={toast} />;
+      case "create-trip":      return <CreateTrip setScreen={setScreen} toast={toast} />;
+      case "itinerary-builder":return <ItineraryBuilder trip={selectedTrip} setScreen={setScreen} toast={toast} />;
+      case "trips":            return <TripsList setScreen={setScreen} setSelectedTrip={setSelectedTrip} toast={toast} />;
+      case "profile":          return <ProfileScreen user={user} setScreen={setScreen} toast={toast} />;
+      case "search":           return <SearchScreen setScreen={setScreen} toast={toast} />;
+      case "itinerary-view":   return <ItineraryView trip={selectedTrip} setScreen={setScreen} toast={toast} />;
+      case "community":        return <CommunityScreen toast={toast} />;
+      case "checklist":        return <ChecklistScreen toast={toast} />;
+      case "public-trip":      return <PublicTripScreen trip={selectedTrip} setScreen={setScreen} toast={toast} />;
+      case "notes":            return <NotesScreen toast={toast} />;
+      case "admin":            return <AdminScreen />;
+      case "invoice":          return <InvoiceScreen trip={selectedTrip} setScreen={setScreen} toast={toast} />;
+      default:                 return <Dashboard user={user} setScreen={setScreen} setSelectedTrip={setSelectedTrip} toast={toast} />;
+    }
+  };
+
+  // Sidebar screens
+  const withSidebar = user && !["auth"].includes(screen);
+
+  return (
+    <>
+      <style>{CSS}</style>
+      <ToastContainer toasts={toasts} />
+      {user && <Nav screen={screen} setScreen={setScreen} user={user} onLogout={handleLogout} />}
+      {withSidebar ? (
+        <div className="app-layout">
+          <Sidebar screen={screen} setScreen={setScreen} />
+          <div className="app-content">{renderScreen()}</div>
+        </div>
+      ) : renderScreen()}
+    </>
+  );
+}
